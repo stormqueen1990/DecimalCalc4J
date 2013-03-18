@@ -1,6 +1,7 @@
 package parser;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.LinkedList;
 import java.util.List;
@@ -248,6 +249,16 @@ public class Parser {
 				
 				// Parses current operation
 				value = op1.divide(value, 10, RoundingMode.HALF_UP);
+			} else if (tk.getType() == TypeEnum.MOD) {
+				this.lookahead++;
+				BigDecimal op1 = value;
+				BigDecimal op2 = this.term(tokens, values);
+				
+				// Higher precedence operations
+				value = this.expLevel1(tokens, values, op2);
+				
+				// Current op
+				value = op1.remainder(op2, new MathContext(10, RoundingMode.HALF_UP));
 			} else {
 				// Parses lower precedence operations (if there is one)
 				value = this.expLevel3(tokens, values, value);
@@ -305,7 +316,7 @@ public class Parser {
 	}
 	
 	/**
-	 * Parses the terminal token.
+	 * Parses the terminal token and subexpressions.
 	 * 
 	 * @param tokens
 	 *            tokens recognized by the lexical verifier.
@@ -330,6 +341,19 @@ public class Parser {
 		} else if (tk.getType() == TypeEnum.IDENTIFIER) {
 			this.lookahead++;
 			return values.get(tk.getText());
+		} else
+		// Parses subexpressions
+		if (tk.getType() == TypeEnum.OPEN_BRACK) {
+			this.lookahead++;
+			
+			BigDecimal value = this.term(tokens, values);
+			value = this.expLevel1(tokens, values, value);
+			
+			tk = tokens.get(this.lookahead);
+			if (tk.getType() == TypeEnum.CLOSE_BRACK) {
+				this.lookahead++;
+				return value;
+			}
 		}
 		
 		// Throws an error when an unexpected token is found
@@ -342,12 +366,11 @@ public class Parser {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		Parser parser = new Parser("a+c");
+		Parser parser = new Parser("num*(sum/2)");
 		try {
 			ValueMap values = new ValueMap();
-			values.put("a", new BigDecimal(3));
-			values.put("b", new BigDecimal(2));
-			values.put("c", new BigDecimal(2));
+			values.put("num", new BigDecimal(3));
+			values.put("sum", new BigDecimal(10));
 			List<Token> tokens = parser.lexicalVerifier();
 			
 			System.out.println(parser.parse((LinkedList<Token>) tokens, values));
