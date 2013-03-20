@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.LinkedList;
-import java.util.List;
 
 import util.Utils;
 import util.ValueMap;
@@ -35,8 +34,8 @@ public class Parser {
 	 * @throws LexicalException
 	 *             when an unrecognized lexem is found.
 	 */
-	public List<Token> lexicalVerifier() throws LexicalException {
-		List<Token> tokens = new LinkedList<Token>();
+	public LinkedList<Token> lexicalVerifier() throws LexicalException {
+		LinkedList<Token> tokens = new LinkedList<Token>();
 		int pos = 0;
 		
 		char currChar;
@@ -55,7 +54,20 @@ public class Parser {
 				
 				tk.append(currChar);
 				type = TypeEnum.IDENTIFIER;
-			} else if (currChar >= '0' && currChar <= '9' || currChar == '.') {
+			} else if (currChar >= '0' && currChar <= '9') {
+				if (!tk.toString().isEmpty() && Utils.nvl(type, TypeEnum.NUMBER) != TypeEnum.NUMBER) {
+					if (type == TypeEnum.IDENTIFIER) {
+						tk.append(currChar);
+					} else {
+						tokens.add(this.createToken(tk.toString(), type, initIndex));
+						tk = new StringBuilder();
+						initIndex = pos;
+					}
+				} else {
+					tk.append(currChar);
+					type = TypeEnum.NUMBER;
+				}
+			} else if (currChar == '.') {
 				if (!tk.toString().isEmpty() && Utils.nvl(type, TypeEnum.NUMBER) != TypeEnum.NUMBER) {
 					tokens.add(this.createToken(tk.toString(), type, initIndex));
 					tk = new StringBuilder();
@@ -72,7 +84,7 @@ public class Parser {
 				}
 				
 				tk.append(currChar);
-				type = TypeEnum.SUM;
+				type = TypeEnum.PLUS;
 			} else if (currChar == '-') {
 				if (!tk.toString().isEmpty()) {
 					tokens.add(this.createToken(tk.toString(), type, initIndex));
@@ -291,7 +303,7 @@ public class Parser {
 		
 		if (tk != null) {
 			// Parses the operation value
-			if (tk.getType() == TypeEnum.SUM) {
+			if (tk.getType() == TypeEnum.PLUS) {
 				this.lookahead++;
 				BigDecimal op1 = value;
 				BigDecimal op2 = this.term(tokens, values);
@@ -334,25 +346,54 @@ public class Parser {
 			tk = tokens.get(this.lookahead);
 		}
 		
-		// Parses the value, depending on terminal type
-		if (tk.getType() == TypeEnum.NUMBER) {
-			this.lookahead++;
-			return new BigDecimal(tk.getText());
-		} else if (tk.getType() == TypeEnum.IDENTIFIER) {
-			this.lookahead++;
-			return values.get(tk.getText());
-		} else
-		// Parses subexpressions
-		if (tk.getType() == TypeEnum.OPEN_BRACK) {
-			this.lookahead++;
+		boolean positive = true;
+		if (tk != null) {
+			if (tk.getType() == TypeEnum.PLUS) {
+				this.lookahead++;
+			} else if (tk.getType() == TypeEnum.MINUS) {
+				this.lookahead++;
+				positive = false;
+			}
 			
-			BigDecimal value = this.term(tokens, values);
-			value = this.expLevel1(tokens, values, value);
+			if (this.lookahead >= tokens.size()) {
+				throw new ParsingException("unexpected token at " + tk.getInitIndex());
+			}
 			
 			tk = tokens.get(this.lookahead);
-			if (tk.getType() == TypeEnum.CLOSE_BRACK) {
+			
+			BigDecimal value = null;
+			// Parses the value, depending on terminal type
+			if (tk.getType() == TypeEnum.NUMBER) {
 				this.lookahead++;
+				value = new BigDecimal(tk.getText());
+				
+				if (!positive) {
+					value = value.negate();
+				}
+				
 				return value;
+			} else if (tk.getType() == TypeEnum.IDENTIFIER) {
+				this.lookahead++;
+				value = values.get(tk.getText());
+				
+				if (!positive) {
+					value = value.negate();
+				}
+				
+				return value;
+			} else
+			// Parses subexpressions
+			if (tk.getType() == TypeEnum.OPEN_BRACK) {
+				this.lookahead++;
+				
+				value = this.term(tokens, values);
+				value = this.expLevel1(tokens, values, value);
+				
+				tk = tokens.get(this.lookahead);
+				if (tk.getType() == TypeEnum.CLOSE_BRACK) {
+					this.lookahead++;
+					return value;
+				}
 			}
 		}
 		
@@ -360,22 +401,8 @@ public class Parser {
 		throw new ParsingException("unexpected token at " + tk.getInitIndex());
 	}
 	
-	/**
-	 * Test method.
-	 * 
-	 * @param args
-	 */
-	public static void main(String[] args) {
-		Parser parser = new Parser("num*(sum/2)");
-		try {
-			ValueMap values = new ValueMap();
-			values.put("num", new BigDecimal(3));
-			values.put("sum", new BigDecimal(10));
-			List<Token> tokens = parser.lexicalVerifier();
-			
-			System.out.println(parser.parse((LinkedList<Token>) tokens, values));
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+	public static void main(String[] args) throws LexicalException {
+		Parser p = new Parser("val1-val2");
+		System.out.println(p.lexicalVerifier());
 	}
 }
