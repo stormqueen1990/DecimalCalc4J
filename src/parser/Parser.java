@@ -7,6 +7,7 @@ import java.util.LinkedList;
 
 import util.Utils;
 import util.ValueMap;
+import enumeration.OperatorPrecendenceEnum;
 import enumeration.TypeEnum;
 import exception.LexicalException;
 import exception.ParsingException;
@@ -62,6 +63,8 @@ public class Parser {
 						tokens.add(this.createToken(tk.toString(), type, initIndex));
 						tk = new StringBuilder();
 						initIndex = pos;
+						tk.append(currChar);
+						type = TypeEnum.NUMBER;
 					}
 				} else {
 					tk.append(currChar);
@@ -307,24 +310,54 @@ public class Parser {
 				this.lookahead++;
 				BigDecimal op1 = value;
 				BigDecimal op2 = this.term(tokens, values);
-				// Executes parsing for higher precedence operations
-				value = this.expLevel1(tokens, values, op2);
+				
+				// Verifies if there is a next token
+				if (this.lookahead < tokens.size()) {
+					tk = tokens.get(this.lookahead);
+					if (this.getOpPrecedence(tk) != OperatorPrecendenceEnum.LEVEL3) {
+						// Executes parsing for higher precedence operations
+						op2 = this.expLevel1(tokens, values, op2);
+					}
+				}
 				
 				// Parses current operation
-				value = op1.add(value);
+				value = op1.add(op2);
 			} else if (tk.getType() == TypeEnum.MINUS) {
 				this.lookahead++;
 				BigDecimal op1 = value;
 				BigDecimal op2 = this.term(tokens, values);
-				// Executes parsing for higher precedence operations
-				value = this.expLevel1(tokens, values, op2);
+				
+				// Verifies if there is a next token
+				if (this.lookahead < tokens.size()) {
+					tk = tokens.get(this.lookahead);
+					if (this.getOpPrecedence(tk) != OperatorPrecendenceEnum.LEVEL3) {
+						// Executes parsing for higher precedence operations
+						op2 = this.expLevel1(tokens, values, op2);
+					}
+				}
 				
 				// Parses current operation
-				value = op1.subtract(value);
+				value = op1.subtract(op2);
 			}
 		}
 		
 		return value;
+	}
+	
+	private OperatorPrecendenceEnum getOpPrecedence(Token tk) {
+		switch (tk.getType()) {
+			case PLUS:
+			case MINUS:
+				return OperatorPrecendenceEnum.LEVEL3;
+			case MULT:
+			case DIV:
+			case MOD:
+				return OperatorPrecendenceEnum.LEVEL2;
+			case POWER:
+				return OperatorPrecendenceEnum.LEVEL1;
+			default:
+				return null;
+		}
 	}
 	
 	/**
@@ -399,10 +432,5 @@ public class Parser {
 		
 		// Throws an error when an unexpected token is found
 		throw new ParsingException("unexpected token at " + tk.getInitIndex());
-	}
-	
-	public static void main(String[] args) throws LexicalException {
-		Parser p = new Parser("val1-val2");
-		System.out.println(p.lexicalVerifier());
 	}
 }
