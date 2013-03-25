@@ -11,14 +11,36 @@ import enumeration.TypeEnum;
 import exception.LexicalException;
 import exception.ParsingException;
 
+/**
+ * Lexically verifies, parses and evaluates an expression string.
+ * 
+ * @author mauren
+ */
 public class Parser {
 	private String expression;
 	private int lookahead = 0;
 	
+	/**
+	 * Constructs a new parser object.
+	 * 
+	 * @param expression
+	 *            expression to be parsed and evaluated.
+	 */
 	public Parser(String expression) {
 		this.expression = expression;
 	}
 	
+	/**
+	 * Creates a token.
+	 * 
+	 * @param text
+	 *            token string value.
+	 * @param type
+	 *            token type.
+	 * @param initIndex
+	 *            start index where the token was found.
+	 * @return a new instance of {@link Token}.
+	 */
 	private Token createToken(String text, TypeEnum type, int initIndex) {
 		Token token = new Token();
 		token.setText(text);
@@ -62,6 +84,9 @@ public class Parser {
 						tokens.add(this.createToken(tk.toString(), type, initIndex));
 						tk = new StringBuilder();
 						initIndex = pos;
+						
+						tk.append(currChar);
+						type = TypeEnum.NUMBER;
 					}
 				} else {
 					tk.append(currChar);
@@ -173,13 +198,64 @@ public class Parser {
 	 * @return value of expression.
 	 * @throws Exception
 	 */
-	public BigDecimal parse(LinkedList<Token> tokens, ValueMap values) throws Exception {
+	public BigDecimal eval(LinkedList<Token> tokens, ValueMap values) throws ParsingException {
+		return this.exp(tokens, values);
+	}
+	
+	/**
+	 * Expression representation.
+	 * 
+	 * @param tokens
+	 *            the tokens to be parsed.
+	 * @param values
+	 *            variables values.
+	 * @param value
+	 *            previous expression parsing value.
+	 * @return the current value for parsed expression.
+	 * @throws ParsingException
+	 */
+	public BigDecimal exp(LinkedList<Token> tokens, ValueMap values) throws ParsingException {
 		BigDecimal value = BigDecimal.ZERO;
+		value = this.interm1(tokens, values, value);
+		value = this.expLevel3(tokens, values, value);
 		
+		return value;
+	}
+	
+	/**
+	 * Intermediate parsing, level 1.
+	 * 
+	 * @param tokens
+	 *            the tokens to be parsed.
+	 * @param values
+	 *            variables values.
+	 * @param value
+	 *            previous expression parsing value.
+	 * @return the current value for parsed expression.
+	 * @throws ParsingException
+	 */
+	public BigDecimal interm1(LinkedList<Token> tokens, ValueMap values, BigDecimal value) throws ParsingException {
+		value = this.interm2(tokens, values, value);
+		value = this.expLevel2(tokens, values, value);
+		
+		return value;
+	}
+	
+	/**
+	 * Intermediate parsing, level 2.
+	 * 
+	 * @param tokens
+	 *            the tokens to be parsed.
+	 * @param values
+	 *            variables values.
+	 * @param value
+	 *            previous expression parsing value.
+	 * @return the current value for parsed expression.
+	 * @throws ParsingException
+	 */
+	public BigDecimal interm2(LinkedList<Token> tokens, ValueMap values, BigDecimal value) throws ParsingException {
 		value = this.term(tokens, values);
-		while (this.lookahead < tokens.size()) {
-			value = this.expLevel1(tokens, values, value);
-		}
+		value = this.expLevel1(tokens, values, value);
 		
 		return value;
 	}
@@ -210,11 +286,10 @@ public class Parser {
 				this.lookahead++;
 				BigDecimal operand = this.term(tokens, values);
 				
+				operand = this.expLevel1(tokens, values, operand);
+				
 				// Parses current operation
 				value = value.pow(operand.intValue());
-			} else {
-				// Parses lower precedence operations (if there is one)
-				value = this.expLevel2(tokens, values, value);
 			}
 		}
 		
@@ -246,34 +321,34 @@ public class Parser {
 			if (tk.getType() == TypeEnum.MULT) {
 				this.lookahead++;
 				BigDecimal op1 = value;
-				BigDecimal op2 = this.term(tokens, values);
+				BigDecimal op2;
 				// Parses the higher precedence operations
-				value = this.expLevel1(tokens, values, op2);
+				op2 = this.interm2(tokens, values, value);
 				
 				// Parses current operation
-				value = op1.multiply(value);
+				value = op1.multiply(op2);
+				value = this.expLevel2(tokens, values, value);
 			} else if (tk.getType() == TypeEnum.DIV) {
 				this.lookahead++;
 				BigDecimal op1 = value;
-				BigDecimal op2 = this.term(tokens, values);
+				BigDecimal op2;
 				// Parses the higher precedence operations
-				value = this.expLevel1(tokens, values, op2);
+				op2 = this.interm2(tokens, values, value);
 				
 				// Parses current operation
-				value = op1.divide(value, 10, RoundingMode.HALF_UP);
+				value = op1.divide(op2, 10, RoundingMode.HALF_UP);
+				value = this.expLevel2(tokens, values, value);
 			} else if (tk.getType() == TypeEnum.MOD) {
 				this.lookahead++;
 				BigDecimal op1 = value;
-				BigDecimal op2 = this.term(tokens, values);
+				BigDecimal op2;
 				
 				// Higher precedence operations
-				value = this.expLevel1(tokens, values, op2);
+				op2 = this.interm2(tokens, values, value);
 				
 				// Current op
 				value = op1.remainder(op2, new MathContext(10, RoundingMode.HALF_UP));
-			} else {
-				// Parses lower precedence operations (if there is one)
-				value = this.expLevel3(tokens, values, value);
+				value = this.expLevel2(tokens, values, value);
 			}
 		}
 		
@@ -306,21 +381,23 @@ public class Parser {
 			if (tk.getType() == TypeEnum.PLUS) {
 				this.lookahead++;
 				BigDecimal op1 = value;
-				BigDecimal op2 = this.term(tokens, values);
+				BigDecimal op2;
 				// Executes parsing for higher precedence operations
-				value = this.expLevel1(tokens, values, op2);
+				op2 = this.interm1(tokens, values, op1);
 				
 				// Parses current operation
-				value = op1.add(value);
+				value = op1.add(op2);
+				value = this.expLevel3(tokens, values, value);
 			} else if (tk.getType() == TypeEnum.MINUS) {
 				this.lookahead++;
 				BigDecimal op1 = value;
-				BigDecimal op2 = this.term(tokens, values);
+				BigDecimal op2;
 				// Executes parsing for higher precedence operations
-				value = this.expLevel1(tokens, values, op2);
+				op2 = this.interm1(tokens, values, op1);
 				
 				// Parses current operation
-				value = op1.subtract(value);
+				value = op1.subtract(op2);
+				value = this.expLevel3(tokens, values, value);
 			}
 		}
 		
@@ -386,8 +463,7 @@ public class Parser {
 			if (tk.getType() == TypeEnum.OPEN_BRACK) {
 				this.lookahead++;
 				
-				value = this.term(tokens, values);
-				value = this.expLevel1(tokens, values, value);
+				value = this.exp(tokens, values);
 				
 				tk = tokens.get(this.lookahead);
 				if (tk.getType() == TypeEnum.CLOSE_BRACK) {
@@ -399,10 +475,5 @@ public class Parser {
 		
 		// Throws an error when an unexpected token is found
 		throw new ParsingException("unexpected token at " + tk.getInitIndex());
-	}
-	
-	public static void main(String[] args) throws LexicalException {
-		Parser p = new Parser("val1-val2");
-		System.out.println(p.lexicalVerifier());
 	}
 }

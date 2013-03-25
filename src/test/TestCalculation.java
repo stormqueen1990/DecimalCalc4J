@@ -19,8 +19,8 @@ public class TestCalculation {
 		values.put("val2", new BigDecimal(10));
 		
 		Parser p = new Parser("val1+val2");
-		BigDecimal value = p.parse(p.lexicalVerifier(), values);
-		assertEquals(value.compareTo(new BigDecimal(15)), 0);
+		BigDecimal value = p.eval(p.lexicalVerifier(), values);
+		assertEquals(value.compareTo(new BigDecimal("15")), 0);
 	}
 	
 	@Test
@@ -31,8 +31,8 @@ public class TestCalculation {
 		
 		Parser p = new Parser("val1-val2");
 		BigDecimal value;
-		value = p.parse(p.lexicalVerifier(), values);
-		assertEquals(value.compareTo(new BigDecimal(-5)), 0);
+		value = p.eval(p.lexicalVerifier(), values);
+		assertEquals(value.compareTo(new BigDecimal("-5")), 0);
 	}
 	
 	@Test
@@ -43,8 +43,8 @@ public class TestCalculation {
 		
 		Parser p = new Parser("val1*val2");
 		BigDecimal value;
-		value = p.parse(p.lexicalVerifier(), values);
-		assertEquals(value.compareTo(new BigDecimal(30)), 0);
+		value = p.eval(p.lexicalVerifier(), values);
+		assertEquals(value.compareTo(new BigDecimal("30")), 0);
 	}
 	
 	@Test
@@ -55,8 +55,8 @@ public class TestCalculation {
 		
 		Parser p = new Parser("val1/val2");
 		BigDecimal value;
-		value = p.parse(p.lexicalVerifier(), values);
-		assertEquals(value.compareTo(new BigDecimal(5)), 0);
+		value = p.eval(p.lexicalVerifier(), values);
+		assertEquals(value.compareTo(new BigDecimal("5")), 0);
 	}
 	
 	@Test
@@ -68,8 +68,8 @@ public class TestCalculation {
 		
 		Parser p = new Parser("val1+(val2+val3)");
 		BigDecimal value;
-		value = p.parse(p.lexicalVerifier(), values);
-		assertEquals(value.compareTo(new BigDecimal(16)), 0);
+		value = p.eval(p.lexicalVerifier(), values);
+		assertEquals(value.compareTo(new BigDecimal("16")), 0);
 	}
 	
 	@Test
@@ -81,8 +81,8 @@ public class TestCalculation {
 		
 		Parser p = new Parser("val1-(val2-val3)");
 		BigDecimal value;
-		value = p.parse(p.lexicalVerifier(), values);
-		assertEquals(value.compareTo(new BigDecimal(0)), 0);
+		value = p.eval(p.lexicalVerifier(), values);
+		assertEquals(value.compareTo(new BigDecimal("0")), 0);
 	}
 	
 	@Test
@@ -94,8 +94,8 @@ public class TestCalculation {
 		
 		Parser p = new Parser("val1*(val2*val3)");
 		BigDecimal value;
-		value = p.parse(p.lexicalVerifier(), values);
-		assertEquals(value.compareTo(new BigDecimal(120)), 0);
+		value = p.eval(p.lexicalVerifier(), values);
+		assertEquals(value.compareTo(new BigDecimal("120")), 0);
 	}
 	
 	@Test
@@ -107,8 +107,8 @@ public class TestCalculation {
 		
 		Parser p = new Parser("val1/(val2/val3)");
 		BigDecimal value;
-		value = p.parse(p.lexicalVerifier(), values);
-		assertEquals(value.compareTo(new BigDecimal(4)), 0);
+		value = p.eval(p.lexicalVerifier(), values);
+		assertEquals(value.compareTo(new BigDecimal("4")), 0);
 	}
 	
 	@Test
@@ -120,10 +120,39 @@ public class TestCalculation {
 		values.put("val4", new BigDecimal(20));
 		values.put("val5", new BigDecimal(80));
 		
-		Parser p = new Parser("val1+val2-(val3*val4/val5)+val1^2.0");
-		BigDecimal value = p.parse(p.lexicalVerifier(), values);
+		Parser p = new Parser("val1+val2-(val3*val4/val5)+val1^2.0^3.0");
+		BigDecimal value = p.eval(p.lexicalVerifier(), values);
 		
-		System.out.println(value);
-		assertEquals(value.compareTo(new BigDecimal(35)), 0);
+		assertEquals(value.compareTo(new BigDecimal("390635")), 0);
+	}
+	
+	@Test
+	public void complexExp2() throws Exception {
+		ValueMap values = new ValueMap();
+		values.put("val1", new BigDecimal(5));
+		values.put("val2", new BigDecimal(7));
+		values.put("val3", new BigDecimal(8));
+		values.put("val4", new BigDecimal(20));
+		values.put("val5", new BigDecimal(20));
+		
+		Parser p = new Parser("val1+val2-(val3*val4/val5^2.0)+val1^2.0^3.0");
+		BigDecimal value = p.eval(p.lexicalVerifier(), values);
+		
+		assertEquals(value.compareTo(new BigDecimal("390636.6")), 0);
+	}
+	
+	@Test
+	public void complexExp3() throws Exception {
+		ValueMap values = new ValueMap();
+		values.put("val1", new BigDecimal(5));
+		values.put("val2", new BigDecimal(7));
+		values.put("val3", new BigDecimal(8));
+		values.put("val4", new BigDecimal(20));
+		values.put("val5", new BigDecimal(20));
+		
+		Parser p = new Parser("val1+val2-((val3*val4/val5)^2.0)+val1^2.0^3.0");
+		BigDecimal value = p.eval(p.lexicalVerifier(), values);
+		
+		assertEquals(value.compareTo(new BigDecimal("390573")), 0);
 	}
 }
