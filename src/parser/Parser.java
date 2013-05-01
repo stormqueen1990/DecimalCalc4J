@@ -226,7 +226,9 @@ public class Parser {
 	 * @throws Exception
 	 */
 	public BigDecimal eval(LinkedList<Token> tokens, ValueMap values) throws ParsingException {
-		return this.exp(tokens, values);
+		BigDecimal result = this.exp(tokens, values);
+		result = result.setScale(this.roundingPrecision, this.roundingMode);
+		return result;
 	}
 	
 	/**
