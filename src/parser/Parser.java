@@ -19,15 +19,42 @@ import exception.ParsingException;
 public class Parser {
 	private String expression;
 	private int lookahead = 0;
+	private int roundingPrecision;
+	private RoundingMode roundingMode;
 	
 	/**
-	 * Constructs a new parser object.
+	 * Constructs a new parser object for given expression, with a rounding
+	 * precision of 10 and a rounding mode of HALF_EVEN (banker's rounding).
 	 * 
 	 * @param expression
 	 *            expression to be parsed and evaluated.
 	 */
 	public Parser(String expression) {
+		this(expression, 10);
+	}
+	
+	/**
+	 * Constructs a new parser object for given expression, with the specified
+	 * rounding precision and a rounding mode of HALF_EVEN (banker's rounding).
+	 * 
+	 * @param expression
+	 *            expression to be parsed and evaluated.
+	 */
+	public Parser(String expression, int roundingPrecision) {
+		this(expression, roundingPrecision, RoundingMode.HALF_EVEN);
+	}
+	
+	/**
+	 * Constructs a new parser object for given expression, with the specified
+	 * rounding precision and the specified rounding mode.
+	 * 
+	 * @param expression
+	 *            expression to be parsed and evaluated.
+	 */
+	public Parser(String expression, int roundingPrecision, RoundingMode roundingMode) {
 		this.expression = expression;
+		this.roundingPrecision = roundingPrecision;
+		this.roundingMode = roundingMode;
 	}
 	
 	/**
@@ -336,7 +363,7 @@ public class Parser {
 				op2 = this.interm2(tokens, values, value);
 				
 				// Parses current operation
-				value = op1.divide(op2, 10, RoundingMode.HALF_UP);
+				value = op1.divide(op2, this.roundingPrecision, this.roundingMode);
 				value = this.expLevel2(tokens, values, value);
 			} else if (tk.getType() == TypeEnum.MOD) {
 				this.lookahead++;
@@ -347,7 +374,7 @@ public class Parser {
 				op2 = this.interm2(tokens, values, value);
 				
 				// Current op
-				value = op1.remainder(op2, new MathContext(10, RoundingMode.HALF_UP));
+				value = op1.remainder(op2, new MathContext(this.roundingPrecision, this.roundingMode));
 				value = this.expLevel2(tokens, values, value);
 			}
 		}
